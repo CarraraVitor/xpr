@@ -2,89 +2,112 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"unicode"
 )
 
 type TokenType int
 
-var KEYWORDS = map[string]TokenType {
-    "let":    LET,
-    "if":     IF,
-    "else":   ELSE,
-    "for":    FOR,
-	"return": RETURN,
-}
-
-func (tt TokenType) String() string {
-    switch tt {
-    case LEFT_PAREN: return "LEFT_PAREN"
-    case RIGHT_PAREN: return "RIGHT_PAREN"
-    case LEFT_CURLY: return "LEFT_CURLY"
-    case RIGHT_CURLY: return "RIGHT_CURLY"
-    case LEFT_BRACKET: return "LEFT_BRACKET"
-    case RIGHT_BRACKET: return "RIGHT_BRACKET"
-    case EQUAL: return "EQUAL"
-    case GREATER: return "GREATER"
-    case LESS: return "LESS"
-    case EQUAL_EQUAL: return "EQUAL_EQUAL"
-    case GREATER_EQUAL: return "GREATER_EQUAL"
-    case LESS_EQUAL: return "LESS_EQUAL"
-    case NUMBER: return "NUMBER"
-    case PLUS: return "PLUS"
-    case MINUS: return "MINUS"
-    case MULT: return "MULT"
-    case DIV: return "DIV"
-    case ID: return "ID"
-    case LET: return "LET"
-    case IF: return "IF"
-    case ELSE: return "ELSE"
-    case FOR: return "FOR"
-	case SEMICOLON: return "SEMICOLON"
-	case RETURN: return "RETURN"
-	case EOF: return "EOF"
-    }
-	return "UNKNOWN TOKEN TYPE"
-}
-
-
-const (
-    LEFT_PAREN TokenType = iota
-    RIGHT_PAREN
-    LEFT_CURLY
-    RIGHT_CURLY
-    LEFT_BRACKET
-    RIGHT_BRACKET
-    EQUAL
-    GREATER
-    LESS
-    EQUAL_EQUAL
-    GREATER_EQUAL
-    LESS_EQUAL
-    NUMBER
-    PLUS
-    MINUS
-    MULT
-    DIV
-    ID
-    LET
-    IF
-    ELSE
-    FOR
-	SEMICOLON
-	RETURN
-    EOF
-)
-
 type Token struct {
-    Type  TokenType
-    Value string
+	Type  TokenType
+	Value string
 }
 
 type Tokenizer struct {
-    input  string
-    cursor int
+	input  string
+	cursor int
+}
+
+var KEYWORDS = map[string]TokenType{
+	"let":    LET,
+	"if":     IF,
+	"else":   ELSE,
+	"for":    FOR,
+	"return": RETURN,
+}
+
+const (
+	LEFT_PAREN TokenType = iota
+	RIGHT_PAREN
+	LEFT_CURLY
+	RIGHT_CURLY
+	LEFT_BRACKET
+	RIGHT_BRACKET
+	EQUAL
+	GREATER
+	LESS
+	EQUAL_EQUAL
+	GREATER_EQUAL
+	LESS_EQUAL
+	NUMBER
+	PLUS
+	MINUS
+	MULT
+	DIV
+	ID
+	LET
+	IF
+	ELSE
+	FOR
+	SEMICOLON
+	RETURN
+	EOF
+)
+
+func (tt TokenType) String() string {
+	switch tt {
+	case LEFT_PAREN:
+		return "LEFT_PAREN"
+	case RIGHT_PAREN:
+		return "RIGHT_PAREN"
+	case LEFT_CURLY:
+		return "LEFT_CURLY"
+	case RIGHT_CURLY:
+		return "RIGHT_CURLY"
+	case LEFT_BRACKET:
+		return "LEFT_BRACKET"
+	case RIGHT_BRACKET:
+		return "RIGHT_BRACKET"
+	case EQUAL:
+		return "EQUAL"
+	case GREATER:
+		return "GREATER"
+	case LESS:
+		return "LESS"
+	case EQUAL_EQUAL:
+		return "EQUAL_EQUAL"
+	case GREATER_EQUAL:
+		return "GREATER_EQUAL"
+	case LESS_EQUAL:
+		return "LESS_EQUAL"
+	case NUMBER:
+		return "NUMBER"
+	case PLUS:
+		return "PLUS"
+	case MINUS:
+		return "MINUS"
+	case MULT:
+		return "MULT"
+	case DIV:
+		return "DIV"
+	case ID:
+		return "ID"
+	case LET:
+		return "LET"
+	case IF:
+		return "IF"
+	case ELSE:
+		return "ELSE"
+	case FOR:
+		return "FOR"
+	case SEMICOLON:
+		return "SEMICOLON"
+	case RETURN:
+		return "RETURN"
+	case EOF:
+		return "EOF"
+	}
+	return "UNKNOWN TOKEN TYPE"
 }
 
 func (tok Token) String() string {
@@ -92,316 +115,336 @@ func (tok Token) String() string {
 }
 
 func NewLeftParen() Token {
-    return Token{
-    	Type: LEFT_PAREN,
-    	Value: "(",
-    }
+	return Token{
+		Type:  LEFT_PAREN,
+		Value: "(",
+	}
 }
 
 func NewRightParen() Token {
-    return Token{
-    	Type: RIGHT_PAREN,
-    	Value: ")",
-    }
+	return Token{
+		Type:  RIGHT_PAREN,
+		Value: ")",
+	}
 }
 
 func NewLeftCurly() Token {
-    return Token{
-    	Type: LEFT_CURLY,
-    	Value: "{",
-    }
+	return Token{
+		Type:  LEFT_CURLY,
+		Value: "{",
+	}
 }
 
 func NewRightCurly() Token {
-    return Token{
-    	Type: RIGHT_CURLY,
-    	Value: "}",
-    }
+	return Token{
+		Type:  RIGHT_CURLY,
+		Value: "}",
+	}
 }
 
 func NewLeftBracket() Token {
-    return Token{
-    	Type: LEFT_BRACKET,
-    	Value: "[",
-    }
+	return Token{
+		Type:  LEFT_BRACKET,
+		Value: "[",
+	}
 }
 
 func NewRightBracket() Token {
-    return Token{
-    	Type: RIGHT_BRACKET,
-    	Value: "]",
-    }
+	return Token{
+		Type:  RIGHT_BRACKET,
+		Value: "]",
+	}
 }
 
 func NewGreaterEqual() Token {
-    return Token{
-    	Type: GREATER_EQUAL,
-    	Value: ">=",
-    }
+	return Token{
+		Type:  GREATER_EQUAL,
+		Value: ">=",
+	}
 }
 func NewGreater() Token {
-    return Token{
-    	Type: GREATER,
-    	Value: ">",
-    }
+	return Token{
+		Type:  GREATER,
+		Value: ">",
+	}
 }
 
 func NewLessEqual() Token {
-    return Token{
-    	Type: LESS_EQUAL,
-    	Value: "<=",
-    }
+	return Token{
+		Type:  LESS_EQUAL,
+		Value: "<=",
+	}
 }
 
 func NewLess() Token {
-    return Token{
-    	Type: LESS,
-    	Value: "<",
-    }
+	return Token{
+		Type:  LESS,
+		Value: "<",
+	}
 }
 
 func NewEqualEqual() Token {
-    return Token{
-    	Type: EQUAL_EQUAL,
-    	Value: "==",
-    }
+	return Token{
+		Type:  EQUAL_EQUAL,
+		Value: "==",
+	}
 }
 
 func NewEqual() Token {
-    return Token{
-    	Type: EQUAL,
-    	Value: "=",
-    }
+	return Token{
+		Type:  EQUAL,
+		Value: "=",
+	}
 }
 
 func NewPlus() Token {
-    return Token{
-    	Type: PLUS,
-    	Value: "+",
-    }
+	return Token{
+		Type:  PLUS,
+		Value: "+",
+	}
 }
 
 func NewMinus() Token {
-    return Token{
-    	Type: MINUS,
-    	Value: "-",
-    }
+	return Token{
+		Type:  MINUS,
+		Value: "-",
+	}
 }
 
 func NewMult() Token {
-    return Token{
-    	Type: MULT,
-    	Value: "*",
-    }
+	return Token{
+		Type:  MULT,
+		Value: "*",
+	}
 }
 
 func NewDiv() Token {
-    return Token{
-    	Type: DIV,
-    	Value: "/",
-    }
+	return Token{
+		Type:  DIV,
+		Value: "/",
+	}
 }
 
 func NewNumber(n string) Token {
-    return Token{
-    	Type: NUMBER,
-    	Value: n,
-    }
+	return Token{
+		Type:  NUMBER,
+		Value: n,
+	}
 }
 
 func NewID(id string) Token {
-    return Token{
-    	Type: ID,
-    	Value: id,
-    }
+	return Token{
+		Type:  ID,
+		Value: id,
+	}
 }
 
 func NewSemiColon() Token {
 	return Token{
-		Type: SEMICOLON,
-		Value: ";", 
+		Type:  SEMICOLON,
+		Value: ";",
 	}
 }
 
 func NewEOF() Token {
-    return Token{
-    	Type: EOF,
-    	Value: "EOF",
-    }
+	return Token{
+		Type:  EOF,
+		Value: "EOF",
+	}
 }
 
-func New(input string) Tokenizer {
-    return Tokenizer{
-    	input: input,
-    	cursor: 0,
-    }
+func NewTokenizer(input string) Tokenizer {
+	return Tokenizer{
+		input:  input,
+		cursor: 0,
+	}
 }
 
 func (t *Tokenizer) Next() (Token, error) {
-    if t.isEnd() {
-    	return NewEOF(), nil
-    }
-    char := t.input[t.cursor]
-    for unicode.IsSpace(rune(char)) {
-    	t.cursor++
-    	if t.isEnd() {
-    		return NewEOF(), nil
-    	}
-    	char = t.input[t.cursor]
-    }
+	if t.isEnd() {
+		return NewEOF(), nil
+	}
+	char := t.input[t.cursor]
+	for unicode.IsSpace(rune(char)) {
+		t.cursor++
+		if t.isEnd() {
+			return NewEOF(), nil
+		}
+		char = t.input[t.cursor]
+	}
 
-    switch {
-    case char == '(': t.cursor++; return NewLeftParen(), nil;
-    case char == ')': t.cursor++; return NewRightParen(), nil;
-    case char == '{': t.cursor++; return NewLeftCurly(), nil;
-    case char == '}': t.cursor++; return NewRightCurly(), nil;
-    case char == '[': t.cursor++; return NewLeftBracket(), nil;
-    case char == ']': t.cursor++; return NewRightBracket(), nil;
-    case char == '+': t.cursor++; return NewPlus(), nil;
-    case char == '-': t.cursor++; return NewMinus(), nil;
-    case char == '*': t.cursor++; return NewMult(), nil;
-    case char == '/': t.cursor++; return NewDiv(), nil;
-    case char == '>': { 
-    	next := t.Peek()
-    	if next == '=' {
-    		t.cursor += 2;
-    		return NewGreaterEqual(), nil
-    	} else {
-    		t.cursor++;
-    		return NewGreater(), nil
-    	}
-    }
-    case char == '<': {
-    	next := t.Peek()
-    	if next == '=' {
-    		t.cursor += 2;
-    		return NewLessEqual(), nil
-    	} else {
-    		t.cursor++;
-    		return NewLess(), nil
-    	}
-    }
-    case char == '=': {
-    	next := t.Peek()
-    	if next == '=' {
-    		t.cursor += 2;
-    		return NewEqualEqual(), nil
-    	} else {
-    		t.cursor++;
-    		return NewEqual(), nil
-    	}
-    }
-    case unicode.IsLetter(rune(char)), char == '_': {
-    	id := t.consumeIdentifier()
-    	for kw, typ := range KEYWORDS {
-    		if id == kw {
-    			return Token{
-    				Type: typ,
-    				Value: id,
-    			}, nil
-    		}
-    	}
-     	return NewID(id), nil;
+	switch {
+	case char == '(':
+		t.cursor++
+		return NewLeftParen(), nil
+	case char == ')':
+		t.cursor++
+		return NewRightParen(), nil
+	case char == '{':
+		t.cursor++
+		return NewLeftCurly(), nil
+	case char == '}':
+		t.cursor++
+		return NewRightCurly(), nil
+	case char == '[':
+		t.cursor++
+		return NewLeftBracket(), nil
+	case char == ']':
+		t.cursor++
+		return NewRightBracket(), nil
+	case char == '+':
+		t.cursor++
+		return NewPlus(), nil
+	case char == '-':
+		t.cursor++
+		return NewMinus(), nil
+	case char == '*':
+		t.cursor++
+		return NewMult(), nil
+	case char == '/':
+		t.cursor++
+		return NewDiv(), nil
+	case char == '>':
+		{
+			next := t.Peek()
+			if next == '=' {
+				t.cursor += 2
+				return NewGreaterEqual(), nil
+			} else {
+				t.cursor++
+				return NewGreater(), nil
+			}
+		}
+	case char == '<':
+		{
+			next := t.Peek()
+			if next == '=' {
+				t.cursor += 2
+				return NewLessEqual(), nil
+			} else {
+				t.cursor++
+				return NewLess(), nil
+			}
+		}
+	case char == '=':
+		{
+			next := t.Peek()
+			if next == '=' {
+				t.cursor += 2
+				return NewEqualEqual(), nil
+			} else {
+				t.cursor++
+				return NewEqual(), nil
+			}
+		}
+	case unicode.IsLetter(rune(char)), char == '_':
+		{
+			id := t.consumeIdentifier()
+			typ, ok := KEYWORDS[id]
+			if ok {
+				tok := Token{
+					Type:  typ,
+					Value: id,
+				}
+				return tok, nil
+			}
+			return NewID(id), nil
 
-    }
-    case unicode.IsDigit(rune(char)): {
-    	n, err := t.consumeNumber()
-    	if err != nil {
-    		return Token{}, fmt.Errorf("next: %s", err)
-    	}
-     	return NewNumber(n), nil;
-    }
-	case char == ';': t.cursor++; return NewSemiColon(), nil
-    default: return Token{}, fmt.Errorf("next: invalid token '%c'", char);
-    }
-    panic("unreachable");
+		}
+	case unicode.IsDigit(rune(char)):
+		{
+			n, err := t.consumeNumber()
+			if err != nil {
+				return Token{}, fmt.Errorf("next: %s", err)
+			}
+			return NewNumber(n), nil
+		}
+	case char == ';':
+		t.cursor++
+		return NewSemiColon(), nil
+	default:
+		return Token{}, fmt.Errorf("next: invalid token '%c'", char)
+	}
+	panic("unreachable")
 }
 
 func (t *Tokenizer) Peek() byte {
-    if t.cursor + 1 >= len(t.input) {
-    	return 0
-    }
-    return t.input[t.cursor + 1]
+	if t.cursor+1 >= len(t.input) {
+		return 0
+	}
+	return t.input[t.cursor+1]
 }
 
 func (t *Tokenizer) isEnd() bool {
-    return t.cursor >= len(t.input)
+	return t.cursor >= len(t.input)
 }
 
 func (t *Tokenizer) validIdentifierChars() string {
-    return "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789"
+	return "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789"
 }
 
 func (t *Tokenizer) consumeIdentifier() string {
-    out := strings.Builder{}
-    for {
-    	if t.isEnd() { break; }
-    	char := t.input[t.cursor]
-    	if strings.ContainsRune(t.validIdentifierChars(), rune(char)) {
-    		out.WriteByte(char)
-    		t.cursor++
-    	} else {
-    		break;
-    	}
-    }
-    return out.String()
+	out := strings.Builder{}
+	for {
+		if t.isEnd() {
+			break
+		}
+		char := t.input[t.cursor]
+		if strings.ContainsRune(t.validIdentifierChars(), rune(char)) {
+			out.WriteByte(char)
+			t.cursor++
+		} else {
+			break
+		}
+	}
+	return out.String()
 }
 
 func (t *Tokenizer) consumeNumber() (string, error) {
-    out := strings.Builder{}
-    has_dot := false
-    run := true
-    for run {
-        if t.isEnd() { break; }
+	out := strings.Builder{}
+	has_dot := false
+loop:
+	for {
+		if t.isEnd() {
+			break
+		}
 
-    	char := t.input[t.cursor]
-    	switch {
-    	case unicode.IsDigit(rune(char)): out.WriteByte(char); t.cursor++;
-    	case char == '.': { 
-    		if !has_dot {
-    			out.WriteByte(char); t.cursor++;
-    		} else {
-    			return "", fmt.Errorf("consume number: invalid number '%s': multiple decimal points", out.String()) 
-    		}
-    	}
-    	case char == '_': t.cursor++;
-    	default: run = false;
-    	}
-    }
-    return out.String(), nil
+		char := t.input[t.cursor]
+		switch {
+		case unicode.IsDigit(rune(char)):
+			out.WriteByte(char)
+			t.cursor++
+		case char == '.':
+			{
+				if !has_dot {
+					out.WriteByte(char)
+					t.cursor++
+				} else {
+					return "", fmt.Errorf("consume number: invalid number '%s': multiple decimal points", out.String())
+				}
+			}
+		case char == '_':
+			t.cursor++
+		default:
+			break loop
+		}
+	}
+	return out.String(), nil
 }
 
 func (t *Tokenizer) Scan() ([]Token, error) {
 	tokens := []Token{}
-    tok, err := t.Next()
-    if err != nil {
+	tok, err := t.Next()
+	if err != nil {
 		return nil, fmt.Errorf("scan: %s", err)
-    }
+	}
 	tokens = append(tokens, tok)
-    for tok.Type != EOF {
-    	tok, err = t.Next()
-    	if err != nil {
-    	   	return nil, fmt.Errorf("scan: %s\n", err)
-    	}
+	for tok.Type != EOF {
+		tok, err = t.Next()
+		if err != nil {
+			return nil, fmt.Errorf("scan: %s\n", err)
+		}
 		tokens = append(tokens, tok)
-    }
-	return tokens, nil;
-}
-
-func main() {
-	input_file := "input.xpr"
-	expr, err := os.ReadFile(input_file)
-	if err != nil {
-		fmt.Printf("ERROR: could not read file '%s': %s", input_file, err)
-		return
 	}
-    tokenizer := New(string(expr))
-	tokens, err := tokenizer.Scan()
-	if err != nil {
-		fmt.Printf("ERROR: Tokenizer: %s\n", err)
-		os.Exit(1)
-	}
-	for _, tok := range tokens {
-		fmt.Printf("%s\n", tok)
-	}
+	return tokens, nil
 }
