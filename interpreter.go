@@ -7,7 +7,9 @@ import (
 	"os"
 )
 
-func (exp ExprNumber) Eval() float64 {
+const DEBUG = false;
+
+func (exp Number) Eval() float64 {
 	return float64(exp)
 }
 
@@ -21,6 +23,10 @@ func (op BinOp) Eval() float64 {
 		return op.left.Eval() * op.right.Eval()
 	case DIV:
 		return op.left.Eval() / op.right.Eval()
+	case EQUAL:
+		right := op.right.Eval()
+		env[Var(op.left.String())] = right
+		return right
 	default:
 		return 0
 	}
@@ -38,22 +44,50 @@ func (unop UnOp) Eval() float64 {
 	return 0
 }
 
+func (v Var) Eval() float64 {
+	val, ok := env[v]
+	if !ok {
+		return 0
+	}
+	return val
+}
+
+func (block Block) Eval() float64 {
+	var res float64
+	for _, expr := range block.exprs {
+   		res = expr.Eval()
+	}
+	return res
+}
+
 func Interpret(input string) {
 	tokenizer := NewTokenizer(input)
 	tokens, err := tokenizer.Scan()
-	for _, token := range tokens {
-		fmt.Printf("%s\n", token)
+	if DEBUG {
+		for _, token := range tokens {
+			fmt.Printf("%s\n", token)
+		}
 	}
 
 	if err != nil {
 		fmt.Printf("ERROR: Tokenizer: %s\n", err)
-		os.Exit(1)
+		// os.Exit(1)
 	}
 
 	parser := NewParser(tokens)
-	exp := parser.Parse(0)
-	fmt.Printf("%s\n", exp)
-	fmt.Printf("RES: %f\n", exp.Eval())
+	parser.Parse()
+	// fmt.Printf("%f\n", expr.Eval())
+	// for parser.ShouldRun()  {
+	// 	expr := parser.Parse(0)
+	// 	if expr == nil {
+	// 		break
+	// 	}
+	// 	if DEBUG {
+	// 		fmt.Printf("---\n")
+	// 		fmt.Printf("%s\n", expr)
+	// 	}
+	// 	fmt.Printf("%f\n", expr.Eval())
+	// }
 }
 
 func interpret_file(input_file string) {
@@ -79,7 +113,6 @@ func main() {
 			break
 		}
 		scan := bufio.NewScanner(os.Stdin)
-
 		scan.Scan()
 		line := scan.Text()
 		Interpret(line)

@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+
 type Parser struct {
 	tokens []Token
 	cursor int
@@ -17,7 +18,16 @@ type Expr interface {
 	String() string
 }
 
-type ExprNumber float64
+type Var string
+
+type Env map[Var]float64
+var env = Env{}
+
+type Number float64
+
+type Block struct {
+	exprs []Expr
+}
 
 type BinOp struct {
 	left  Expr
@@ -30,14 +40,18 @@ type UnOp struct {
 	op    Token
 }
 
-func (exp ExprNumber) String() string {
+type Assignment struct {
+	left  Expr
+	right Expr
+}
+
+func (exp Number) String() string {
 	return fmt.Sprintf("%.2f", exp)
 }
 
-
 func (binop BinOp) String() string {
 	out := strings.Builder{}
-	out.Write([]byte{'(', ' '})
+	out.Write([]byte("BinOp {\n  op: "))
 	switch binop.op.Type {
 	case PLUS:
 		out.WriteByte('+')
@@ -47,14 +61,16 @@ func (binop BinOp) String() string {
 		out.WriteByte('*')
 	case DIV:
 		out.WriteByte('/')
+	case EQUAL:
+		out.WriteByte('=')
 	default:
 		out.WriteByte('?')
 	}
-	out.WriteByte(' ')
+	out.Write([]byte("\n  left: "))
 	out.Write([]byte(binop.left.String()))
-	out.WriteByte(' ')
+	out.Write([]byte("\n  right: "))
 	out.Write([]byte(binop.right.String()))
-	out.Write([]byte{' ', ')'})
+	out.Write([]byte("\n}"))
 	return out.String()
 }
 
@@ -72,7 +88,25 @@ func (unop UnOp) String() string {
 	return out.String()
 }
 
-func exprNumber(t Token) (ExprNumber, error) {
+func (v Var) String() string {
+	return string(v)
+}
+
+func (block Block) String() string {
+	out := strings.Builder{}
+	out.Write([]byte("Block: "))
+	out.WriteByte('{')
+	out.WriteByte('\n')
+	for _, expr := range block.exprs {
+		out.Write([]byte(expr.String()))
+		out.WriteByte('\n')
+	}
+	out.WriteByte('\n')
+	out.WriteByte('}')
+	return out.String()
+}
+
+func exprNumber(t Token) (Number, error) {
 	if t.Type != NUMBER {
 		return 0, fmt.Errorf("expr number: invalid number '%s'", t.Value)
 	}
@@ -80,7 +114,16 @@ func exprNumber(t Token) (ExprNumber, error) {
 	if err != nil {
 		return 0, fmt.Errorf("expr number: invalid number '%s': failed to parse: strconv: %s", t.Value, err)
 	}
-	return ExprNumber(n), nil
+	return Number(n), nil
+}
+
+func exprVar(t Token) (Var, error) {
+    if t.Type != ID {
+		return Var(""), fmt.Errorf("expr var: invalid identifier'%s'", t.Value)
+	}
+
+	variable := Var(t.Value)
+	return variable, nil
 }
 
 func NewParser(tokens []Token) Parser {
@@ -88,6 +131,10 @@ func NewParser(tokens []Token) Parser {
 		tokens: tokens,
 		cursor: 0,
 	}
+}
+
+func (p *Parser) shouldRun() bool {
+	return p.cursor < len(p.tokens) 
 }
 
 func (p *Parser) Peek() Token {
@@ -116,7 +163,32 @@ func (p *Parser) Expect(tok Token) error {
 	return nil
 }
 
-func (p *Parser) Parse(min_bp int) Expr {
+func (p *Parser) Assert(tok Token, typ TokenType) error {
+	if tok.Type != typ {
+		return fmt.Errorf("Parser Assert: expected '%s', got '%s'", typ, tok.Type)
+	}
+	return nil
+}
+
+func (p *Parser) Parse() {
+	b := p.Block()
+	fmt.Printf("block: %s\n", b)
+	fmt.Printf("RES: %.2f\n", b.Eval())
+}
+
+func (p *Parser) Block() Block {
+	block := Block{}
+	for p.Peek().Type != RIGHT_CURLY {
+		expr := p.Expression(0)
+		if expr == nil {
+			break
+		}
+		block.exprs = append(block.exprs, expr)
+	}
+	return block
+}
+
+func (p *Parser) Expression(prev_bp int) Expr {
 	var left Expr
 
 	left_tok := p.Next()
@@ -129,8 +201,15 @@ func (p *Parser) Parse(min_bp int) Expr {
 			os.Exit(1)
 		}
 	case LEFT_PAREN:
-		left = p.Parse(0)
+		left = p.Expression(0)
 		err := p.Expect(NewRightParen())
+		if err != nil {
+			fmt.Printf("ERROR: %s\n", err)
+			os.Exit(1)
+		}
+	case LEFT_CURLY:
+		left = p.Block()
+		err := p.Expect(NewRightCurly())
 		if err != nil {
 			fmt.Printf("ERROR: %s\n", err)
 			os.Exit(1)
@@ -139,25 +218,39 @@ func (p *Parser) Parse(min_bp int) Expr {
 		_, rbp := prefixBindingPower(left_tok.Type)
 		left = UnOp{
 			op:    left_tok,
-			right: p.Parse(rbp),
+			right: p.Expression(rbp),
 		}
+	case ID:
+		var err error
+		left, err = exprVar(left_tok)
+		if err != nil {
+			fmt.Printf("ERROR: %s\n", err)
+			os.Exit(1)
+		}
+	case SEMICOLON: 
+		fmt.Printf("SEMICOLON FOUND!!!!\n")
+		return nil
 	default:
-		return left
+		return nil
 	}
 
 	for {
 		op := p.Peek()
+		if op.Type == SEMICOLON {
+			p.Next()
+			return left
+		}
 
 		lbp, rbp := infixBindingPower(op.Type)
-		if lbp <= min_bp {
-			break
+		if lbp <= prev_bp {
+			return left
 		}
 		p.Next()
 
-		right := p.Parse(rbp)
+		right := p.Expression(rbp)
 
 		if right == nil {
-			break
+			return left
 		}
 
 		left = BinOp{
@@ -166,29 +259,37 @@ func (p *Parser) Parse(min_bp int) Expr {
 			op:    op,
 		}
 	}
-
-	return left
 }
 
 func infixBindingPower(toktype TokenType) (int, int) {
 	switch toktype {
-	case PLUS, MINUS:
+	case EQUAL:
 		return 1, 2
-	case MULT, DIV:
+	case PLUS, MINUS:
 		return 3, 4
+	case MULT, DIV:
+		return 5, 6
 	case EOF:
 		return 0, 0
 	}
 	return -1, -1
 }
 
+// prefixBindingPower returns all the lbp as -1
+// because they are meaningless,
+// as a prefix operator only operates on operands to its right.
+// Besides that, a value is returned for the sake of keeping the
+// usage equal to the infixBindingPower function
+//
+// The expected usage is something like:
+//
+//	_, rbp := prefixBindingPower(toktype)
 func prefixBindingPower(toktype TokenType) (int, int) {
 	switch toktype {
 	case PLUS, MINUS:
-		return -1, 5
+		return -1, 8
 	case EOF:
 		return -1, 0
 	}
 	return -1, -1
 }
-
