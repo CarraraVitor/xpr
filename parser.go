@@ -9,25 +9,22 @@ import (
 
 
 type Parser struct {
-	tokens []Token
-	cursor int
+	tokens    []Token
+	cursor    int
+	env       *Env
 }
 
 type Expr interface {
-	Eval() float64
+	Eval(env *Env) float64
 	String() string
 }
 
-type Var string
-
-type Env map[Var]float64
-var env = Env{}
+type Env struct {
+	vars map[Var]float64
+	parent *Env
+}
 
 type Number float64
-
-type Block struct {
-	exprs []Expr
-}
 
 type BinOp struct {
 	left  Expr
@@ -40,9 +37,26 @@ type UnOp struct {
 	op    Token
 }
 
+type Var string
+
+type Block struct {
+	exprs   []Expr
+	env     *Env
+}
+
 type Assignment struct {
 	left  Expr
 	right Expr
+}
+
+type If struct {
+	cond Expr
+	then Block
+}
+
+type IfElse struct {
+	If
+	elze Block
 }
 
 func (exp Number) String() string {
@@ -62,6 +76,19 @@ func (binop BinOp) String() string {
 	case DIV:
 		out.WriteByte('/')
 	case EQUAL:
+		out.WriteByte('=')
+	case GREATER:
+		out.WriteByte('>')
+	case GREATER_EQUAL: 
+		out.WriteByte('>')
+		out.WriteByte('=')
+	case LESS: 
+		out.WriteByte('<')
+	case LESS_EQUAL: 
+		out.WriteByte('<')
+		out.WriteByte('=')
+	case EQUAL_EQUAL: 
+		out.WriteByte('=')
 		out.WriteByte('=')
 	default:
 		out.WriteByte('?')
@@ -106,6 +133,14 @@ func (block Block) String() string {
 	return out.String()
 }
 
+func (i If) String() string {
+	return fmt.Sprintf("if (%s) {\n%s\n}\n", i.cond, i.then)
+}
+
+func (ie IfElse) String() string {
+	return fmt.Sprintf("if (%s) {\n%s\n} else {\n%s\n}", ie.cond, ie.then, ie.elze)
+}
+
 func exprNumber(t Token) (Number, error) {
 	if t.Type != NUMBER {
 		return 0, fmt.Errorf("expr number: invalid number '%s'", t.Value)
@@ -130,11 +165,11 @@ func NewParser(tokens []Token) Parser {
 	return Parser{
 		tokens: tokens,
 		cursor: 0,
+		env: &Env{
+			vars: make(map[Var]float64),
+			parent: nil,
+		},
 	}
-}
-
-func (p *Parser) shouldRun() bool {
-	return p.cursor < len(p.tokens) 
 }
 
 func (p *Parser) Peek() Token {
@@ -170,14 +205,49 @@ func (p *Parser) Assert(tok Token, typ TokenType) error {
 	return nil
 }
 
-func (p *Parser) Parse() {
-	b := p.Block()
-	fmt.Printf("block: %s\n", b)
-	fmt.Printf("RES: %.2f\n", b.Eval())
+func (p *Parser) Parse() Expr {
+	return p.Block()
+}
+
+func (p *Parser) IfElse() (res Expr, err error) {
+	cond := p.Expression(0)
+	err = p.Expect(NewLeftCurly())
+	if err != nil { return }
+	then := p.Block()
+	err = p.Expect(NewRightCurly())
+	if err != nil { return }
+
+	res = If{
+		cond: cond,
+		then: then,
+	}
+
+	if p.Peek().Type == ELSE {
+		p.Next()
+		err = p.Expect(NewLeftCurly())
+		if err != nil { return }
+
+		elze := p.Block()
+
+		err = p.Expect(NewRightCurly())
+		if err != nil { return }
+
+		res = IfElse{
+			If:   res.(If),
+			elze: elze,
+		}
+	} 
+
+	return
 }
 
 func (p *Parser) Block() Block {
-	block := Block{}
+	new_env := Env{
+		vars: make(map[Var]float64),
+		parent: p.env,
+	}
+	block := Block{ env: &new_env }
+	p.env = block.env
 	for p.Peek().Type != RIGHT_CURLY {
 		expr := p.Expression(0)
 		if expr == nil {
@@ -227,8 +297,14 @@ func (p *Parser) Expression(prev_bp int) Expr {
 			fmt.Printf("ERROR: %s\n", err)
 			os.Exit(1)
 		}
+	case IF:
+		var err error
+		left, err = p.IfElse()
+		if err != nil {
+			fmt.Printf("ERROR: %s\n", err)
+			os.Exit(1)
+		}
 	case SEMICOLON: 
-		fmt.Printf("SEMICOLON FOUND!!!!\n")
 		return nil
 	default:
 		return nil
@@ -265,10 +341,12 @@ func infixBindingPower(toktype TokenType) (int, int) {
 	switch toktype {
 	case EQUAL:
 		return 1, 2
-	case PLUS, MINUS:
+	case GREATER, GREATER_EQUAL, LESS, LESS_EQUAL, EQUAL_EQUAL:
 		return 3, 4
-	case MULT, DIV:
+	case PLUS, MINUS:
 		return 5, 6
+	case MULT, DIV:
+		return 7, 8
 	case EOF:
 		return 0, 0
 	}
@@ -287,7 +365,7 @@ func infixBindingPower(toktype TokenType) (int, int) {
 func prefixBindingPower(toktype TokenType) (int, int) {
 	switch toktype {
 	case PLUS, MINUS:
-		return -1, 8
+		return -1, 10
 	case EOF:
 		return -1, 0
 	}
