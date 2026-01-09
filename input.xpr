@@ -1,9 +1,12 @@
-true = 1.0;
-false = 0.0;
-
-x = if 9 >= 10 {
-    true;
-} else {
-    false;
+n = 10;
+i = 1;
+a = 0;
+b = 1;
+x = while i < n {
+    i = i + 1;
+    tmp = a;
+    a = b;
+    b = tmp + b;
+    a;
 };
-x;
+print x;

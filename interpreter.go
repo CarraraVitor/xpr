@@ -109,9 +109,9 @@ func (block Block) Eval(env *Env) float64 {
 	}
 
 	for _, expr := range block.exprs {
-		fmt.Printf("Evaluationg Expr: %s\n", expr)
+		// fmt.Printf("Evaluating Expr: %s\n", expr)
+		// fmt.Printf("Res: %.2f\n", res)
    		res = expr.Eval(block.env)
-		fmt.Printf("Res: %.2f\n", res)
 	}
 	return res
 }
@@ -133,7 +133,21 @@ func (ie IfElse) Eval(env *Env) float64 {
 	}
 }
 
-func Interpret(input string) {
+func (w While) Eval(env *Env) float64 {
+	res := 0.0
+	for w.cond.Eval(env) > 0.0 {
+		res = w.then.Eval(env)
+	}
+	return res
+}
+
+func (p Print) Eval(env *Env) float64 {
+	res := p.expr.Eval(env)
+	fmt.Printf("%.2f\n", res)
+	return res
+}
+
+func Interpret(parser *Parser, input string) {
 	tokenizer := NewTokenizer(input)
 	tokens, err := tokenizer.Scan()
 	if DEBUG {
@@ -147,29 +161,23 @@ func Interpret(input string) {
 		// os.Exit(1)
 	}
 
-	parser := NewParser(tokens)
+	parser.ResetTokens(tokens)
 	main_block := parser.Parse()
 	res := main_block.Eval(nil)
 	// fmt.Printf("%s\n", main_block)
 	fmt.Printf("Final Value: %.2f\n",res) 
 }
 
-func interpret_file(input_file string) {
+func interpret_file(parser *Parser, input_file string) {
 	code, err := os.ReadFile(input_file)
 	if err != nil {
 		fmt.Printf("ERROR: could not read file '%s': %s", input_file, err)
 		return
 	}
-	Interpret(string(code))
+	Interpret(parser, string(code))
 }
 
-func main() {
-	input := flag.String("input", "", "Input file with source code" )
-	flag.Parse()
-	if *input != "" {
-		interpret_file(*input)
-		return
-	}
+func REPL(parser *Parser) {
 	for {
 		input := ""
 		fmt.Printf(">>> ")
@@ -182,8 +190,29 @@ func main() {
 			scan.Scan()
 			line += scan.Text()
 		}
-		Interpret(line)
+		tokenizer := NewTokenizer(input)
+		tokens, err := tokenizer.Scan()
+		if err != nil {
+			fmt.Printf("ERROR: Tokenizer: %s\n", err)
+			continue
+		}
+		parser.ResetTokens(tokens)
+		expr := parser.Expression(0)
+		fmt.Printf("Env: %#v\n", *parser.env)
+		res := expr.Eval(parser.env)
+		fmt.Printf("Final Value: %.2f\n",res) 
 	}
+}
+
+func main() {
+	input := flag.String("input", "", "Input file with source code" )
+	flag.Parse()
+	parser := NewParser([]Token{})
+	if *input != "" {
+		interpret_file(&parser, *input)
+		return
+	}
+	REPL(&parser)
 }
 
 func endsWith(s string, pattern byte) bool {

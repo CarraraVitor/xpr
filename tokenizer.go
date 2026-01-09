@@ -23,6 +23,8 @@ var KEYWORDS = map[string]TokenType{
 	"if":     IF,
 	"else":   ELSE,
 	"for":    FOR,
+	"while":  WHILE,
+	"print":  PRINT,
 	"return": RETURN,
 }
 
@@ -49,6 +51,8 @@ const (
 	IF
 	ELSE
 	FOR
+	WHILE
+	PRINT
 	SEMICOLON
 	RETURN
 	EOF
@@ -100,6 +104,10 @@ func (tt TokenType) String() string {
 		return "ELSE"
 	case FOR:
 		return "FOR"
+	case WHILE:
+		return "WHILE"
+	case PRINT:
+		return "PRINT"
 	case SEMICOLON:
 		return "SEMICOLON"
 	case RETURN:

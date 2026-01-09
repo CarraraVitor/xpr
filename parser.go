@@ -59,6 +59,15 @@ type IfElse struct {
 	elze Block
 }
 
+type While struct {
+	cond Expr
+	then Block
+}
+
+type Print struct {
+	expr Expr
+}
+
 func (exp Number) String() string {
 	return fmt.Sprintf("%.2f", exp)
 }
@@ -141,6 +150,14 @@ func (ie IfElse) String() string {
 	return fmt.Sprintf("if (%s) {\n%s\n} else {\n%s\n}", ie.cond, ie.then, ie.elze)
 }
 
+func (w While) String() string {
+	return fmt.Sprintf("while (%s) {\n%s\n}\n", w.cond, w.then)
+}
+
+func (p Print) String() string {
+	return fmt.Sprintf("PRINT: %s", p.expr.String())
+}
+
 func exprNumber(t Token) (Number, error) {
 	if t.Type != NUMBER {
 		return 0, fmt.Errorf("expr number: invalid number '%s'", t.Value)
@@ -170,6 +187,10 @@ func NewParser(tokens []Token) Parser {
 			parent: nil,
 		},
 	}
+}
+
+func (p *Parser) ResetTokens(tokens []Token) {
+	p.tokens = tokens
 }
 
 func (p *Parser) Peek() Token {
@@ -241,9 +262,32 @@ func (p *Parser) IfElse() (res Expr, err error) {
 	return
 }
 
-func (p *Parser) Block() Block {
+func (p *Parser) While() (w Expr, err error) {
+	w = While{}
+
+	cond := p.Expression(0)
+	err = p.Expect(NewLeftCurly())
+	if err != nil { return }
+	then := p.Block(p.env.vars)
+	err = p.Expect(NewRightCurly())
+	if err != nil { return }
+
+	w = While{
+		cond: cond,
+		then: then,
+	}
+	return
+}
+
+func (p *Parser) Block(vars_ ...map[Var]float64) Block {
+	var vars map[Var]float64
+	if len(vars_) > 0 {
+		vars = vars_[0]
+	} else {
+		vars = make(map[Var]float64)
+	}
 	new_env := Env{
-		vars: make(map[Var]float64),
+		vars: vars,
 		parent: p.env,
 	}
 	block := Block{ env: &new_env }
@@ -303,6 +347,17 @@ func (p *Parser) Expression(prev_bp int) Expr {
 		if err != nil {
 			fmt.Printf("ERROR: %s\n", err)
 			os.Exit(1)
+		}
+	case WHILE:
+		var err error
+		left, err = p.While()
+		if err != nil {
+			fmt.Printf("ERROR: %s\n", err)
+			os.Exit(1)
+		}
+	case PRINT:
+		left = Print{
+			expr: p.Expression(0),
 		}
 	case SEMICOLON: 
 		return nil
