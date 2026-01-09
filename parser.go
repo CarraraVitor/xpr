@@ -178,19 +178,25 @@ func exprVar(t Token) (Var, error) {
 	return variable, nil
 }
 
+func newEnv() Env {
+	return Env{
+		vars: make(map[Var]float64),
+		parent: nil,
+	}
+}
+
 func NewParser(tokens []Token) Parser {
+	env := newEnv()
 	return Parser{
 		tokens: tokens,
 		cursor: 0,
-		env: &Env{
-			vars: make(map[Var]float64),
-			parent: nil,
-		},
+		env: &env,
 	}
 }
 
 func (p *Parser) ResetTokens(tokens []Token) {
 	p.tokens = tokens
+	p.cursor = 0
 }
 
 func (p *Parser) Peek() Token {

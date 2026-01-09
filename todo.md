@@ -3,8 +3,8 @@
 - [X] Scope To Blocks
 - [X] IfExpressions 
 - [X] Comparison Operators
+- [X] While Loops
 - [ ] Persistent REPL
-- [ ] While Loops
 - [ ] Functions (Closure)
 - [ ] Primitive Types (float, string, bool)
 - [ ] Composite Types (array, map)

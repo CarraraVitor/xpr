@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 )
 
 const DEBUG = false;
@@ -147,8 +148,14 @@ func (p Print) Eval(env *Env) float64 {
 	return res
 }
 
-func Interpret(parser *Parser, input string) {
-	tokenizer := NewTokenizer(input)
+func interpret_file(parser *Parser, input_file string) {
+	code, err := os.ReadFile(input_file)
+	if err != nil {
+		fmt.Printf("ERROR: could not read file '%s': %s", input_file, err)
+		return
+	}
+
+	tokenizer := NewTokenizer(string(code))
 	tokens, err := tokenizer.Scan()
 	if DEBUG {
 		for _, token := range tokens {
@@ -158,6 +165,7 @@ func Interpret(parser *Parser, input string) {
 
 	if err != nil {
 		fmt.Printf("ERROR: Tokenizer: %s\n", err)
+		return
 		// os.Exit(1)
 	}
 
@@ -168,37 +176,50 @@ func Interpret(parser *Parser, input string) {
 	fmt.Printf("Final Value: %.2f\n",res) 
 }
 
-func interpret_file(parser *Parser, input_file string) {
-	code, err := os.ReadFile(input_file)
-	if err != nil {
-		fmt.Printf("ERROR: could not read file '%s': %s", input_file, err)
-		return
+func scanLine(scan bufio.Scanner) string {
+	txt := ""
+	for !endsWith(txt, ';') {
+		scan.Scan()
+		txt += scan.Text()
 	}
-	Interpret(parser, string(code))
+	return txt
+}
+
+func scanBlock(scan bufio.Scanner) string {
+	txt := ""
+	for !strings.Contains(txt, "}"){
+		scan.Scan()
+		txt += scan.Text()
+		if strings.Contains(txt, "{") && !strings.Contains(txt, "}") {
+			txt += scanBlock(scan)
+		}
+	}
+	return txt
 }
 
 func REPL(parser *Parser) {
 	for {
-		input := ""
+
 		fmt.Printf(">>> ")
-		if input == "quit" {
-			break
-		}
 		line := ""
 		scan := bufio.NewScanner(os.Stdin)
-		for !endsWith(line, ';') {
-			scan.Scan()
-			line += scan.Text()
+		txt := scanLine(*scan)
+		if strings.Contains(txt, "{") && !strings.Contains(txt, "}") {
+			txt += scanBlock(*scan)
 		}
-		tokenizer := NewTokenizer(input)
+		line += txt;
+		fmt.Printf("LINE: %s\n", line)
+
+		tokenizer := NewTokenizer(line)
 		tokens, err := tokenizer.Scan()
+
 		if err != nil {
 			fmt.Printf("ERROR: Tokenizer: %s\n", err)
 			continue
 		}
+
 		parser.ResetTokens(tokens)
 		expr := parser.Expression(0)
-		fmt.Printf("Env: %#v\n", *parser.env)
 		res := expr.Eval(parser.env)
 		fmt.Printf("Final Value: %.2f\n",res) 
 	}
@@ -207,11 +228,14 @@ func REPL(parser *Parser) {
 func main() {
 	input := flag.String("input", "", "Input file with source code" )
 	flag.Parse()
-	parser := NewParser([]Token{})
+	tokens := []Token{}
+	parser := NewParser(tokens)
+
 	if *input != "" {
 		interpret_file(&parser, *input)
 		return
 	}
+
 	REPL(&parser)
 }
 
