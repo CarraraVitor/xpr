@@ -14,17 +14,35 @@ type Parser struct {
 	env       *Env
 }
 
+type TypeKind int
+const (
+	TYPE_FLOAT TypeKind = iota
+	TYPE_STRING
+)
+
+type As struct {
+	float float64
+	str   string
+}
+
+type Type struct {
+	kind TypeKind
+	as   As
+}
+
 type Expr interface {
-	Eval(env *Env) float64
+	Eval(env *Env) Type
 	String() string
 }
 
 type Env struct {
-	vars map[Var]float64
+	vars map[Var]Type
 	parent *Env
 }
 
 type Number float64
+
+type String string
 
 type BinOp struct {
 	left  Expr
@@ -68,8 +86,36 @@ type Print struct {
 	expr Expr
 }
 
+func newFloat(f float64) Type {
+	return Type{
+		kind: TYPE_FLOAT,
+		as:   As{ float: f },
+	}
+}
+
+func newStr(s string) Type {
+	return Type{
+		kind: TYPE_STRING,
+		as:   As{ str: s },
+	}
+}
+
+func (typ Type) String() string {
+	var res string
+	switch typ.kind {
+	case TYPE_FLOAT:  res = fmt.Sprintf("%.2f\n", typ.as.float)
+	case TYPE_STRING: res = fmt.Sprintf("%s\n", typ.as.str)
+	default:          res = "?????"
+	}
+	return res
+}
+
 func (exp Number) String() string {
 	return fmt.Sprintf("%.2f", exp)
+}
+
+func (s String) String() string {
+	return string(s)
 }
 
 func (binop BinOp) String() string {
@@ -169,6 +215,13 @@ func exprNumber(t Token) (Number, error) {
 	return Number(n), nil
 }
 
+func exprStr(s Token) (String, error) {
+	if s.Type != STR_LIT {
+		return String(""), fmt.Errorf("expr var: invalid string literal '%s'", s.Value)
+	}
+	return String(s.Value), nil
+}
+
 func exprVar(t Token) (Var, error) {
     if t.Type != ID {
 		return Var(""), fmt.Errorf("expr var: invalid identifier'%s'", t.Value)
@@ -180,7 +233,7 @@ func exprVar(t Token) (Var, error) {
 
 func newEnv() Env {
 	return Env{
-		vars: make(map[Var]float64),
+		vars: make(map[Var]Type),
 		parent: nil,
 	}
 }
@@ -285,12 +338,12 @@ func (p *Parser) While() (w Expr, err error) {
 	return
 }
 
-func (p *Parser) Block(vars_ ...map[Var]float64) Block {
-	var vars map[Var]float64
+func (p *Parser) Block(vars_ ...map[Var]Type) Block {
+	var vars map[Var]Type
 	if len(vars_) > 0 {
 		vars = vars_[0]
 	} else {
-		vars = make(map[Var]float64)
+		vars = make(map[Var]Type)
 	}
 	new_env := Env{
 		vars: vars,
@@ -316,6 +369,13 @@ func (p *Parser) Expression(prev_bp int) Expr {
 	case NUMBER:
 		var err error
 		left, err = exprNumber(left_tok)
+		if err != nil {
+			fmt.Printf("ERROR: %s\n", err)
+			os.Exit(1)
+		}
+	case STR_LIT:
+		var err error
+	 	left, err = exprStr(left_tok)
 		if err != nil {
 			fmt.Printf("ERROR: %s\n", err)
 			os.Exit(1)

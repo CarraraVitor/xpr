@@ -1,0 +1,7 @@
+x = 10;
+cond = if x > 5 {
+    print "true";
+} else {
+    print "false";
+};
+cond;

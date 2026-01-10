@@ -1,13 +1,17 @@
 # TODO?
 
-- [X] Scope To Blocks
-- [X] IfExpressions 
+- [X] Variables
+- [X] Blocks (with scope)
+- [X] If/IfElse
 - [X] Comparison Operators
 - [X] While Loops
-- [ ] Persistent REPL
+- [X] Persistent REPL
+- [X] Type System
+- [X] Strings
+- [ ] Booleans
 - [ ] Functions (Closure)
-- [ ] Primitive Types (float, string, bool)
-- [ ] Composite Types (array, map)
-- [ ] Identation on Degub Print
-- [ ] Highlighter (Tree-Sitter?)
+- [ ] Array
+- [ ] Maps
+- [ ] Identation on Degub Print -> Debug Graph?
+- [ ] Highlighter (Tree-Sitter?) BIG MAYBE
 

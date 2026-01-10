@@ -46,6 +46,7 @@ const (
 	MINUS
 	MULT
 	DIV
+	STR_LIT
 	ID
 	LET
 	IF
@@ -94,6 +95,8 @@ func (tt TokenType) String() string {
 		return "MULT"
 	case DIV:
 		return "DIV"
+	case STR_LIT:
+		return "STR_LIT"
 	case ID:
 		return "ID"
 	case LET:
@@ -240,6 +243,13 @@ func NewNumber(n string) Token {
 	}
 }
 
+func NewStrLit(s string) Token {
+	return Token{
+		Type:  STR_LIT,
+		Value: s,
+	}
+}
+
 func NewID(id string) Token {
 	return Token{
 		Type:  ID,
@@ -345,6 +355,22 @@ func (t *Tokenizer) Next() (Token, error) {
 				return NewEqual(), nil
 			}
 		}
+	case char == '"':
+		str_lit := strings.Builder{}
+		for {
+			t.cursor++
+			if t.isEnd()  {
+				break
+			}
+			char = t.input[t.cursor]
+			if char == '"' {
+				t.cursor++
+				break
+			}
+			str_lit.WriteByte(char)
+		}
+		return NewStrLit(str_lit.String()), nil
+		
 	case unicode.IsLetter(rune(char)), char == '_':
 		{
 			id := t.consumeIdentifier()

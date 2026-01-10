@@ -10,77 +10,113 @@ import (
 
 const DEBUG = false;
 
-func (exp Number) Eval(env *Env) float64 {
-	return float64(exp)
+func (exp Number) Eval(env *Env) Type {
+	return newFloat(float64(exp))
 }
 
-func (op BinOp) Eval(env *Env) float64 {
+func (s String) Eval(env *Env) Type {
+	return newStr(string(s))
+}
+
+func (op BinOp) Eval(env *Env) Type {
+	right_ := op.right.Eval(env)
+
+	if op.op.Type == EQUAL {
+		var_, ok := op.left.(Var)
+		if !ok {
+			fmt.Printf("ERROR: invalid variable for assignment: '%s'\n", op.left)
+			os.Exit(1)
+		}
+		env.vars[var_] = right_
+		return right_
+	}
+
+	left_  := op.left.Eval(env)
+	if left_.kind != TYPE_FLOAT {
+    	fmt.Printf("ERROR: invalid operand for binary operator: '%s'\n", op.left)
+		os.Exit(1)
+	}
+
+  	if right_.kind != TYPE_FLOAT {
+    	fmt.Printf("ERROR: invalid operand for binary operator: '%s'\n", op.left)
+		os.Exit(1)
+	}
+
+	left := left_.as.float
+	right := right_.as.float
+
 	switch op.op.Type {
 	case PLUS:
-		return op.left.Eval(env) + op.right.Eval(env)
+		return newFloat(left + right)
 	case MINUS:
-		return op.left.Eval(env) - op.right.Eval(env)
+		return newFloat(left - right)
 	case MULT:
-		return op.left.Eval(env) * op.right.Eval(env)
+		return newFloat(left * right)
 	case DIV:
-		return op.left.Eval(env) / op.right.Eval(env)
-	case EQUAL:
-		right := op.right.Eval(env)
-		env.vars[Var(op.left.String())] = right
-		return right
+		return newFloat(left / right)
 	case GREATER:
-		res := op.left.Eval(env) > op.right.Eval(env)
+		res := left > right
 		if res {
-			return 1.0
+			return newFloat(1.0)
 		} else {
-			return 0.0
+			return newFloat(0.0)
 		}
 	case GREATER_EQUAL: 
-		res := op.left.Eval(env) >= op.right.Eval(env)
+		res := left >= right
 		if res {
-			return 1.0
+			return newFloat(1.0)
 		} else {
-			return 0.0
+			return newFloat(0.0)
 		}
 	case LESS: 
-		res := op.left.Eval(env) < op.right.Eval(env)
+		res := left < right
 		if res {
-			return 1.0
+			return newFloat(1.0)
 		} else {
-			return 0.0
+			return newFloat(0.0)
 		}
 	case LESS_EQUAL: 
-		res := op.left.Eval(env) <= op.right.Eval(env)
+		res := left <= right
 		if res {
-			return 1.0
+			return newFloat(1.0)
 		} else {
-			return 0.0
+			return newFloat(0.0)
 		}
 	case EQUAL_EQUAL: 
-		res := op.left.Eval(env) == op.right.Eval(env)
+		res := left == right
 		if res {
-			return 1.0
+			return newFloat(1.0)
 		} else {
-			return 0.0
+			return newFloat(0.0)
 		}
 	default:
-		return 0
+		return newFloat(0.0)
 	}
 }
 
-func (unop UnOp) Eval(env *Env) float64 {
+func (unop UnOp) Eval(env *Env) Type {
+	right := unop.right.Eval(env)
+	if right.kind != TYPE_FLOAT {
+		fmt.Printf("ERROR: invalid operand for unary operator '%s'\n", unop.right)
+		os.Exit(1)
+	}
+	res := Type{ 
+		kind: TYPE_FLOAT,
+	}
 	switch unop.op.Type {
 	case PLUS:
-		return +unop.right.Eval(env)
+		res.as.float = +right.as.float
+		return res
 	case MINUS:
-		return -unop.right.Eval(env)
+		res.as.float = -right.as.float
+		return res
 	}
 	fmt.Printf("ERROR: invalid unary operator: %s\n", unop)
 	os.Exit(1)
-	return 0
+	return Type{}
 }
 
-func (v Var) Eval(env *Env) float64 {
+func (v Var) Eval(env *Env) Type {
 	if env == nil {
 		fmt.Printf("ERROR: unknown variable '%s'\n", v)
 		os.Exit(1)
@@ -100,8 +136,8 @@ func (v Var) Eval(env *Env) float64 {
 	return val
 }
 
-func (block Block) Eval(env *Env) float64 {
-	var res float64
+func (block Block) Eval(env *Env) Type {
+	var res Type
 
 	if DEBUG {
 		fmt.Printf("-----\n")
@@ -117,34 +153,57 @@ func (block Block) Eval(env *Env) float64 {
 	return res
 }
 
-func (i If) Eval(env *Env) float64 {
+func (i If) Eval(env *Env) Type {
 	cond := i.cond.Eval(env)
-	if cond > 0 {
+	if cond.kind != TYPE_FLOAT {
+		fmt.Printf("ERROR: invalid condition in while: '%s'\n", i.cond)
+		os.Exit(1)
+	}
+	if cond.as.float > 0.0 {
 		return i.then.Eval(env)
 	}
-	return 0
+	return Type{
+		kind: TYPE_FLOAT,
+		as: As{
+			float: 0.0,
+		},
+	}
 }
 
-func (ie IfElse) Eval(env *Env) float64 {
+func (ie IfElse) Eval(env *Env) Type {
 	cond := ie.cond.Eval(env)
-	if cond > 0 {
+	if cond.kind != TYPE_FLOAT {
+		fmt.Printf("ERROR: invalid condition in while: '%s'\n", ie.cond)
+		os.Exit(1)
+	}
+	if cond.as.float > 0.0 {
 		return ie.then.Eval(env)
 	} else {
 		return ie.elze.Eval(env)
 	}
 }
 
-func (w While) Eval(env *Env) float64 {
-	res := 0.0
-	for w.cond.Eval(env) > 0.0 {
+func (w While) Eval(env *Env) Type {
+	res := Type{}
+	cond := w.cond.Eval(env)
+	if cond.kind != TYPE_FLOAT {
+		fmt.Printf("ERROR: invalid condition in while: '%s'\n", w.cond)
+		os.Exit(1)
+	}
+	for cond.as.float > 0.0 {
 		res = w.then.Eval(env)
+		cond = w.cond.Eval(env)
+		if cond.kind != TYPE_FLOAT {
+			fmt.Printf("ERROR: invalid condition in while: '%s'\n", w.cond)
+			os.Exit(1)
+		}
 	}
 	return res
 }
 
-func (p Print) Eval(env *Env) float64 {
+func (p Print) Eval(env *Env) Type {
 	res := p.expr.Eval(env)
-	fmt.Printf("%.2f\n", res)
+	fmt.Printf("%s", res)
 	return res
 }
 
@@ -173,42 +232,35 @@ func interpret_file(parser *Parser, input_file string) {
 	main_block := parser.Parse()
 	res := main_block.Eval(nil)
 	// fmt.Printf("%s\n", main_block)
-	fmt.Printf("Final Value: %.2f\n",res) 
-}
-
-func scanLine(scan bufio.Scanner) string {
-	txt := ""
-	for !endsWith(txt, ';') {
-		scan.Scan()
-		txt += scan.Text()
-	}
-	return txt
-}
-
-func scanBlock(scan bufio.Scanner) string {
-	txt := ""
-	for !strings.Contains(txt, "}"){
-		scan.Scan()
-		txt += scan.Text()
-		if strings.Contains(txt, "{") && !strings.Contains(txt, "}") {
-			txt += scanBlock(scan)
-		}
-	}
-	return txt
+	fmt.Printf("Final Value: %s\n",res) 
 }
 
 func REPL(parser *Parser) {
 	for {
-
+		scan := bufio.NewScanner(os.Stdin)
 		fmt.Printf(">>> ")
 		line := ""
-		scan := bufio.NewScanner(os.Stdin)
-		txt := scanLine(*scan)
-		if strings.Contains(txt, "{") && !strings.Contains(txt, "}") {
-			txt += scanBlock(*scan)
+		blocks := 0
+		scan.Scan()
+		txt := scan.Text()
+		if strings.Contains(txt, "{")  {
+			blocks++
+		}
+		if strings.Contains(txt, "}") {
+			blocks--
 		}
 		line += txt;
-		fmt.Printf("LINE: %s\n", line)
+        for blocks > 0 {
+			scan.Scan()
+			txt := scan.Text()
+			if strings.Contains(txt, "{")  {
+				blocks++
+			}
+			if strings.Contains(txt, "}") {
+				blocks--
+			}
+			line += txt;
+		}
 
 		tokenizer := NewTokenizer(line)
 		tokens, err := tokenizer.Scan()
@@ -221,7 +273,7 @@ func REPL(parser *Parser) {
 		parser.ResetTokens(tokens)
 		expr := parser.Expression(0)
 		res := expr.Eval(parser.env)
-		fmt.Printf("Final Value: %.2f\n",res) 
+		fmt.Printf("%s\n",res) 
 	}
 }
 
