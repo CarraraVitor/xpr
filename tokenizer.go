@@ -19,6 +19,7 @@ type Tokenizer struct {
 }
 
 var KEYWORDS = map[string]TokenType{
+	"fun":    FUNCTION,
 	"let":    LET,
 	"if":     IF,
 	"else":   ELSE,
@@ -48,12 +49,14 @@ const (
 	DIV
 	STR_LIT
 	ID
+	FUNCTION
 	LET
 	IF
 	ELSE
 	FOR
 	WHILE
 	PRINT
+	COMMA
 	SEMICOLON
 	RETURN
 	EOF
@@ -99,6 +102,8 @@ func (tt TokenType) String() string {
 		return "STR_LIT"
 	case ID:
 		return "ID"
+	case FUNCTION:
+		return "FUNCTION"
 	case LET:
 		return "LET"
 	case IF:
@@ -113,6 +118,8 @@ func (tt TokenType) String() string {
 		return "PRINT"
 	case SEMICOLON:
 		return "SEMICOLON"
+	case COMMA:
+		return "COMMA"
 	case RETURN:
 		return "RETURN"
 	case EOF:
@@ -257,6 +264,13 @@ func NewID(id string) Token {
 	}
 }
 
+func NewComma() Token {
+	return Token{
+		Type:  COMMA,
+		Value: ",",
+	}
+}
+
 func NewSemiColon() Token {
 	return Token{
 		Type:  SEMICOLON,
@@ -359,7 +373,7 @@ func (t *Tokenizer) Next() (Token, error) {
 		str_lit := strings.Builder{}
 		for {
 			t.cursor++
-			if t.isEnd()  {
+			if t.isEnd() {
 				break
 			}
 			char = t.input[t.cursor]
@@ -370,7 +384,7 @@ func (t *Tokenizer) Next() (Token, error) {
 			str_lit.WriteByte(char)
 		}
 		return NewStrLit(str_lit.String()), nil
-		
+
 	case unicode.IsLetter(rune(char)), char == '_':
 		{
 			id := t.consumeIdentifier()
@@ -393,6 +407,9 @@ func (t *Tokenizer) Next() (Token, error) {
 			}
 			return NewNumber(n), nil
 		}
+	case char == ',':
+		t.cursor++
+		return NewComma(), nil
 	case char == ';':
 		t.cursor++
 		return NewSemiColon(), nil

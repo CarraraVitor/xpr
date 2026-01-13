@@ -7,14 +7,14 @@ import (
 	"strings"
 )
 
-
 type Parser struct {
-	tokens    []Token
-	cursor    int
-	env       *Env
+	tokens []Token
+	cursor int
+	env    *Env
 }
 
 type TypeKind int
+
 const (
 	TYPE_FLOAT TypeKind = iota
 	TYPE_STRING
@@ -36,7 +36,8 @@ type Expr interface {
 }
 
 type Env struct {
-	vars map[Var]Type
+	vars   map[Var]Type
+	funcs  map[string]Function
 	parent *Env
 }
 
@@ -58,8 +59,8 @@ type UnOp struct {
 type Var string
 
 type Block struct {
-	exprs   []Expr
-	env     *Env
+	exprs []Expr
+	env   *Env
 }
 
 type Assignment struct {
@@ -86,26 +87,58 @@ type Print struct {
 	expr Expr
 }
 
+type Function struct {
+	name   string
+	params []Var
+	body   Block
+}
+
+type FunctionCall struct {
+	fun  Function
+	args map[Var]Type
+}
+
 func newFloat(f float64) Type {
 	return Type{
 		kind: TYPE_FLOAT,
-		as:   As{ float: f },
+		as:   As{float: f},
 	}
 }
 
 func newStr(s string) Type {
 	return Type{
 		kind: TYPE_STRING,
-		as:   As{ str: s },
+		as:   As{str: s},
 	}
+}
+
+func (env *Env) getFunc(expr Expr) (Function, error) {
+	var_name, ok := expr.(Var)
+	if !ok {
+		return Function{}, fmt.Errorf("env get func: invalid function name '%v'", expr)
+	}
+	name := string(var_name)
+
+	fun, ok := env.funcs[name]
+	if !ok {
+		if env.parent == nil {
+			return Function{}, fmt.Errorf("env get func: unknown function name: '%s'", name)
+		}
+
+		return env.parent.getFunc(expr)
+	}
+	return fun, nil
 }
 
 func (typ Type) String() string {
 	var res string
 	switch typ.kind {
-	case TYPE_FLOAT:  res = fmt.Sprintf("%.2f\n", typ.as.float)
-	case TYPE_STRING: res = fmt.Sprintf("%s\n", typ.as.str)
-	default:          res = "?????"
+	case TYPE_FLOAT:
+		res = fmt.Sprintf("%.2f\n", typ.as.float)
+	case TYPE_STRING:
+		res = fmt.Sprintf("%s\n", typ.as.str)
+	default:
+		res = "?????"
 	}
 	return res
 }
@@ -134,15 +167,15 @@ func (binop BinOp) String() string {
 		out.WriteByte('=')
 	case GREATER:
 		out.WriteByte('>')
-	case GREATER_EQUAL: 
+	case GREATER_EQUAL:
 		out.WriteByte('>')
 		out.WriteByte('=')
-	case LESS: 
+	case LESS:
 		out.WriteByte('<')
-	case LESS_EQUAL: 
+	case LESS_EQUAL:
 		out.WriteByte('<')
 		out.WriteByte('=')
-	case EQUAL_EQUAL: 
+	case EQUAL_EQUAL:
 		out.WriteByte('=')
 		out.WriteByte('=')
 	default:
@@ -200,6 +233,22 @@ func (w While) String() string {
 	return fmt.Sprintf("while (%s) {\n%s\n}\n", w.cond, w.then)
 }
 
+func (fc FunctionCall) String() string {
+	out := ""
+	name := fc.fun.name
+	out += name + "("
+	for _, param := range fc.fun.params {
+		val, ok := fc.args[param]
+		if ok {
+			out += fmt.Sprintf("%s = %s,", string(param), val.String())
+		} else {
+			out += string(param) + ","
+		}
+	}
+	out += ")"
+	return out
+}
+
 func (p Print) String() string {
 	return fmt.Sprintf("PRINT: %s", p.expr.String())
 }
@@ -223,7 +272,7 @@ func exprStr(s Token) (String, error) {
 }
 
 func exprVar(t Token) (Var, error) {
-    if t.Type != ID {
+	if t.Type != ID {
 		return Var(""), fmt.Errorf("expr var: invalid identifier'%s'", t.Value)
 	}
 
@@ -231,9 +280,18 @@ func exprVar(t Token) (Var, error) {
 	return variable, nil
 }
 
+func exprFunc(name string, params []Var, body Block) Function {
+	return Function{
+		name:   name,
+		params: params,
+		body:   body,
+	}
+}
+
 func newEnv() Env {
 	return Env{
-		vars: make(map[Var]Type),
+		vars:   make(map[Var]Type),
+		funcs:  make(map[string]Function),
 		parent: nil,
 	}
 }
@@ -243,7 +301,7 @@ func NewParser(tokens []Token) Parser {
 	return Parser{
 		tokens: tokens,
 		cursor: 0,
-		env: &env,
+		env:    &env,
 	}
 }
 
@@ -292,10 +350,14 @@ func (p *Parser) Parse() Expr {
 func (p *Parser) IfElse() (res Expr, err error) {
 	cond := p.Expression(0)
 	err = p.Expect(NewLeftCurly())
-	if err != nil { return }
+	if err != nil {
+		return
+	}
 	then := p.Block()
 	err = p.Expect(NewRightCurly())
-	if err != nil { return }
+	if err != nil {
+		return
+	}
 
 	res = If{
 		cond: cond,
@@ -305,18 +367,22 @@ func (p *Parser) IfElse() (res Expr, err error) {
 	if p.Peek().Type == ELSE {
 		p.Next()
 		err = p.Expect(NewLeftCurly())
-		if err != nil { return }
+		if err != nil {
+			return
+		}
 
 		elze := p.Block()
 
 		err = p.Expect(NewRightCurly())
-		if err != nil { return }
+		if err != nil {
+			return
+		}
 
 		res = IfElse{
 			If:   res.(If),
 			elze: elze,
 		}
-	} 
+	}
 
 	return
 }
@@ -326,10 +392,17 @@ func (p *Parser) While() (w Expr, err error) {
 
 	cond := p.Expression(0)
 	err = p.Expect(NewLeftCurly())
-	if err != nil { return }
-	then := p.Block(p.env.vars)
+	if err != nil {
+		return
+	}
+
+	env := newEnv()
+	env.vars = p.env.vars
+	then := p.Block(env)
 	err = p.Expect(NewRightCurly())
-	if err != nil { return }
+	if err != nil {
+		return
+	}
 
 	w = While{
 		cond: cond,
@@ -338,27 +411,85 @@ func (p *Parser) While() (w Expr, err error) {
 	return
 }
 
-func (p *Parser) Block(vars_ ...map[Var]Type) Block {
-	var vars map[Var]Type
-	if len(vars_) > 0 {
-		vars = vars_[0]
+func (p *Parser) Block(envs ...Env) Block {
+	var new_env Env
+	if len(envs) > 0 {
+		new_env = envs[0]
 	} else {
-		vars = make(map[Var]Type)
+		new_env = newEnv()
 	}
-	new_env := Env{
-		vars: vars,
-		parent: p.env,
-	}
-	block := Block{ env: &new_env }
+
+	new_env.parent = p.env
+	block := Block{env: &new_env}
 	p.env = block.env
+
 	for p.Peek().Type != RIGHT_CURLY {
-		expr := p.Expression(0)
-		if expr == nil {
+		if p.cursor >= len(p.tokens) {
 			break
 		}
-		block.exprs = append(block.exprs, expr)
+		expr := p.Expression(0)
+		if expr != nil {
+			block.exprs = append(block.exprs, expr)
+		}
 	}
 	return block
+}
+
+func (p *Parser) FunctionDeclaration() error {
+	func_name_tok := p.Next()
+	err := p.Assert(func_name_tok, ID)
+	if err != nil {
+		return fmt.Errorf("function declaration: invalid function name: %s", err)
+	}
+	name := func_name_tok.Value
+
+	err = p.Expect(NewLeftParen())
+	if err != nil {
+		return fmt.Errorf("function declaration: expected '(' after function name")
+	}
+
+	params := []Var{}
+params_loop:
+	for {
+		typ := p.Peek().Type
+		switch typ {
+		case ID:
+			param, err := exprVar(p.Next())
+			if err != nil {
+				return fmt.Errorf("function declaration: invalid function parameter: %s", err)
+			}
+			params = append(params, param)
+		case COMMA:
+			p.Next()
+		default:
+			break params_loop
+		}
+	}
+	err = p.Expect(NewRightParen())
+	if err != nil {
+		return fmt.Errorf("function declaration: expected ')' after function's params")
+	}
+
+	err = p.Expect(NewLeftCurly())
+	if err != nil {
+		return fmt.Errorf("function declaration: expected '{' after function's parameters ")
+	}
+
+	body := p.Block()
+
+	err = p.Expect(NewRightCurly())
+	if err != nil {
+		return fmt.Errorf("function declaration: expected '}' after function's body")
+	}
+
+	if p.Peek().Type == SEMICOLON {
+		p.Next()
+	}
+
+	fun := exprFunc(name, params, body)
+
+	p.env.funcs[name] = fun
+	return nil
 }
 
 func (p *Parser) Expression(prev_bp int) Expr {
@@ -375,7 +506,7 @@ func (p *Parser) Expression(prev_bp int) Expr {
 		}
 	case STR_LIT:
 		var err error
-	 	left, err = exprStr(left_tok)
+		left, err = exprStr(left_tok)
 		if err != nil {
 			fmt.Printf("ERROR: %s\n", err)
 			os.Exit(1)
@@ -407,6 +538,14 @@ func (p *Parser) Expression(prev_bp int) Expr {
 			fmt.Printf("ERROR: %s\n", err)
 			os.Exit(1)
 		}
+	case FUNCTION:
+		err := p.FunctionDeclaration()
+		if err != nil {
+			fmt.Printf("ERROR: %s\n", err)
+			os.Exit(1)
+		}
+		return nil
+
 	case IF:
 		var err error
 		left, err = p.IfElse()
@@ -425,7 +564,7 @@ func (p *Parser) Expression(prev_bp int) Expr {
 		left = Print{
 			expr: p.Expression(0),
 		}
-	case SEMICOLON: 
+	case SEMICOLON:
 		return nil
 	default:
 		return nil
@@ -436,6 +575,40 @@ func (p *Parser) Expression(prev_bp int) Expr {
 		if op.Type == SEMICOLON {
 			p.Next()
 			return left
+		}
+
+		lbp, _ := postfixBindingPower(op.Type)
+		if lbp != -1 {
+			if lbp <= prev_bp {
+				return left
+			}
+
+			// NOTE: the only possible postfix operator for now is a(b)
+			err := p.Assert(p.Next(), LEFT_PAREN)
+			if err != nil {
+				fmt.Printf("ERROR: only supported postfix operator is Function Call. Invalid operator: '%s'\n", op.Value)
+				os.Exit(1)
+			}
+
+			// TODO: parse function call arguments
+
+			err = p.Expect(NewRightParen())
+			if err != nil {
+				fmt.Printf("ERROR: expected ')' in function call\n")
+				os.Exit(1)
+			}
+
+			function, err := p.env.getFunc(left)
+			if err != nil {
+				fmt.Printf("ERROR: invalid function call: %s\n", err)
+				os.Exit(1)
+			}
+			left = FunctionCall{
+				fun:  function,
+				args: make(map[Var]Type),
+			}
+			p.Next()
+			continue
 		}
 
 		lbp, rbp := infixBindingPower(op.Type)
@@ -456,6 +629,14 @@ func (p *Parser) Expression(prev_bp int) Expr {
 			op:    op,
 		}
 	}
+}
+
+func postfixBindingPower(toktype TokenType) (int, int) {
+	switch toktype {
+	case LEFT_PAREN:
+		return 9, -1
+	}
+	return -1, -1
 }
 
 func infixBindingPower(toktype TokenType) (int, int) {

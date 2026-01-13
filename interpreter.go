@@ -4,11 +4,12 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"maps"
 	"os"
 	"strings"
 )
 
-const DEBUG = false;
+const DEBUG = false
 
 func (exp Number) Eval(env *Env) Type {
 	return newFloat(float64(exp))
@@ -31,14 +32,14 @@ func (op BinOp) Eval(env *Env) Type {
 		return right_
 	}
 
-	left_  := op.left.Eval(env)
+	left_ := op.left.Eval(env)
 	if left_.kind != TYPE_FLOAT {
-    	fmt.Printf("ERROR: invalid operand for binary operator: '%s'\n", op.left)
+		fmt.Printf("ERROR: invalid operand for binary operator: '%s'\n", op.left)
 		os.Exit(1)
 	}
 
-  	if right_.kind != TYPE_FLOAT {
-    	fmt.Printf("ERROR: invalid operand for binary operator: '%s'\n", op.left)
+	if right_.kind != TYPE_FLOAT {
+		fmt.Printf("ERROR: invalid operand for binary operator: '%s'\n", op.left)
 		os.Exit(1)
 	}
 
@@ -61,28 +62,28 @@ func (op BinOp) Eval(env *Env) Type {
 		} else {
 			return newFloat(0.0)
 		}
-	case GREATER_EQUAL: 
+	case GREATER_EQUAL:
 		res := left >= right
 		if res {
 			return newFloat(1.0)
 		} else {
 			return newFloat(0.0)
 		}
-	case LESS: 
+	case LESS:
 		res := left < right
 		if res {
 			return newFloat(1.0)
 		} else {
 			return newFloat(0.0)
 		}
-	case LESS_EQUAL: 
+	case LESS_EQUAL:
 		res := left <= right
 		if res {
 			return newFloat(1.0)
 		} else {
 			return newFloat(0.0)
 		}
-	case EQUAL_EQUAL: 
+	case EQUAL_EQUAL:
 		res := left == right
 		if res {
 			return newFloat(1.0)
@@ -100,7 +101,7 @@ func (unop UnOp) Eval(env *Env) Type {
 		fmt.Printf("ERROR: invalid operand for unary operator '%s'\n", unop.right)
 		os.Exit(1)
 	}
-	res := Type{ 
+	res := Type{
 		kind: TYPE_FLOAT,
 	}
 	switch unop.op.Type {
@@ -136,19 +137,17 @@ func (v Var) Eval(env *Env) Type {
 	return val
 }
 
-func (block Block) Eval(env *Env) Type {
+func (block Block) Eval(_ *Env) Type {
 	var res Type
 
 	if DEBUG {
 		fmt.Printf("-----\n")
-		fmt.Printf("Block:\n%s\n", block)
+		fmt.Printf("Block:\n%#v\n", block)
 		fmt.Printf("Env:\n%#v\n", block.env)
 	}
 
 	for _, expr := range block.exprs {
-		// fmt.Printf("Evaluating Expr: %s\n", expr)
-		// fmt.Printf("Res: %.2f\n", res)
-   		res = expr.Eval(block.env)
+		res = expr.Eval(block.env)
 	}
 	return res
 }
@@ -201,6 +200,11 @@ func (w While) Eval(env *Env) Type {
 	return res
 }
 
+func (fc FunctionCall) Eval(_ *Env) Type {
+	maps.Copy(fc.fun.body.env.vars, fc.args)
+	return fc.fun.body.Eval(nil)
+}
+
 func (p Print) Eval(env *Env) Type {
 	res := p.expr.Eval(env)
 	fmt.Printf("%s", res)
@@ -232,7 +236,7 @@ func interpret_file(parser *Parser, input_file string) {
 	main_block := parser.Parse()
 	res := main_block.Eval(nil)
 	// fmt.Printf("%s\n", main_block)
-	fmt.Printf("Final Value: %s\n",res) 
+	fmt.Printf("Final Value: %s\n", res)
 }
 
 func REPL(parser *Parser) {
@@ -243,23 +247,23 @@ func REPL(parser *Parser) {
 		blocks := 0
 		scan.Scan()
 		txt := scan.Text()
-		if strings.Contains(txt, "{")  {
+		if strings.Contains(txt, "{") {
 			blocks++
 		}
 		if strings.Contains(txt, "}") {
 			blocks--
 		}
-		line += txt;
-        for blocks > 0 {
+		line += txt
+		for blocks > 0 {
 			scan.Scan()
 			txt := scan.Text()
-			if strings.Contains(txt, "{")  {
+			if strings.Contains(txt, "{") {
 				blocks++
 			}
 			if strings.Contains(txt, "}") {
 				blocks--
 			}
-			line += txt;
+			line += txt
 		}
 
 		tokenizer := NewTokenizer(line)
@@ -273,12 +277,12 @@ func REPL(parser *Parser) {
 		parser.ResetTokens(tokens)
 		expr := parser.Expression(0)
 		res := expr.Eval(parser.env)
-		fmt.Printf("%s\n",res) 
+		fmt.Printf("%s\n", res)
 	}
 }
 
 func main() {
-	input := flag.String("input", "", "Input file with source code" )
+	input := flag.String("input", "", "Input file with source code")
 	flag.Parse()
 	tokens := []Token{}
 	parser := NewParser(tokens)
@@ -295,5 +299,5 @@ func endsWith(s string, pattern byte) bool {
 	if len(s) == 0 {
 		return false
 	}
-	return s[len(s) - 1] == pattern
+	return s[len(s)-1] == pattern
 }
