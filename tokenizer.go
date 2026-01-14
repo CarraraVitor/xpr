@@ -335,39 +335,39 @@ func (t *Tokenizer) Next() (Token, error) {
 		return NewMult(), nil
 	case char == '/':
 		t.cursor++
+
+        for t.Peek() != '\n' {
+			t.cursor++
+		}
+
+
 		return NewDiv(), nil
 	case char == '>':
-		{
-			next := t.Peek()
-			if next == '=' {
-				t.cursor += 2
-				return NewGreaterEqual(), nil
-			} else {
-				t.cursor++
-				return NewGreater(), nil
-			}
+		next := t.Peek()
+		if next == '=' {
+			t.cursor += 2
+			return NewGreaterEqual(), nil
+		} else {
+			t.cursor++
+			return NewGreater(), nil
 		}
 	case char == '<':
-		{
-			next := t.Peek()
-			if next == '=' {
-				t.cursor += 2
-				return NewLessEqual(), nil
-			} else {
-				t.cursor++
-				return NewLess(), nil
-			}
+		next := t.Peek()
+		if next == '=' {
+			t.cursor += 2
+			return NewLessEqual(), nil
+		} else {
+			t.cursor++
+			return NewLess(), nil
 		}
 	case char == '=':
-		{
-			next := t.Peek()
-			if next == '=' {
-				t.cursor += 2
-				return NewEqualEqual(), nil
-			} else {
-				t.cursor++
-				return NewEqual(), nil
-			}
+		next := t.Peek()
+		if next == '=' {
+			t.cursor += 2
+			return NewEqualEqual(), nil
+		} else {
+			t.cursor++
+			return NewEqual(), nil
 		}
 	case char == '"':
 		str_lit := strings.Builder{}

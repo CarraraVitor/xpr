@@ -8,10 +8,13 @@
 - [X] Persistent REPL
 - [X] Type System
 - [X] Strings
+- [ ] Functions
+    - [ ] Fix Recursion
+    - [ ] Parse Arguments
 - [ ] Booleans
-- [ ] Functions (Closure)
 - [ ] Array
 - [ ] Maps
+- [ ] Comments
 - [ ] Identation on Degub Print -> Debug Graph?
 - [ ] Highlighter (Tree-Sitter?) BIG MAYBE
 

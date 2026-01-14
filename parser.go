@@ -37,7 +37,7 @@ type Expr interface {
 
 type Env struct {
 	vars   map[Var]Type
-	funcs  map[string]Function
+	funcs  map[string]*Function
 	parent *Env
 }
 
@@ -94,7 +94,7 @@ type Function struct {
 }
 
 type FunctionCall struct {
-	fun  Function
+	fun  *Function
 	args map[Var]Type
 }
 
@@ -112,17 +112,17 @@ func newStr(s string) Type {
 	}
 }
 
-func (env *Env) getFunc(expr Expr) (Function, error) {
+func (env *Env) getFunc(expr Expr) (*Function, error) {
 	var_name, ok := expr.(Var)
 	if !ok {
-		return Function{}, fmt.Errorf("env get func: invalid function name '%v'", expr)
+		return nil, fmt.Errorf("env get func: invalid function name '%v'", expr)
 	}
 	name := string(var_name)
 
 	fun, ok := env.funcs[name]
 	if !ok {
 		if env.parent == nil {
-			return Function{}, fmt.Errorf("env get func: unknown function name: '%s'", name)
+			return nil, fmt.Errorf("env get func: unknown function name: '%s'", name)
 		}
 
 		return env.parent.getFunc(expr)
@@ -291,7 +291,7 @@ func exprFunc(name string, params []Var, body Block) Function {
 func newEnv() Env {
 	return Env{
 		vars:   make(map[Var]Type),
-		funcs:  make(map[string]Function),
+		funcs:  make(map[string]*Function),
 		parent: nil,
 	}
 }
@@ -432,6 +432,8 @@ func (p *Parser) Block(envs ...Env) Block {
 			block.exprs = append(block.exprs, expr)
 		}
 	}
+
+	p.env = block.env.parent
 	return block
 }
 
@@ -465,6 +467,7 @@ params_loop:
 			break params_loop
 		}
 	}
+
 	err = p.Expect(NewRightParen())
 	if err != nil {
 		return fmt.Errorf("function declaration: expected ')' after function's params")
@@ -475,7 +478,10 @@ params_loop:
 		return fmt.Errorf("function declaration: expected '{' after function's parameters ")
 	}
 
+	fun := &Function{name: name, params: params}
+	p.env.funcs[name] = fun
 	body := p.Block()
+	*fun = exprFunc(name, params, body)
 
 	err = p.Expect(NewRightCurly())
 	if err != nil {
@@ -486,9 +492,6 @@ params_loop:
 		p.Next()
 	}
 
-	fun := exprFunc(name, params, body)
-
-	p.env.funcs[name] = fun
 	return nil
 }
 
