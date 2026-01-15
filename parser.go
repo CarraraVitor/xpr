@@ -134,9 +134,9 @@ func (typ Type) String() string {
 	var res string
 	switch typ.kind {
 	case TYPE_FLOAT:
-		res = fmt.Sprintf("%.2f\n", typ.as.float)
+		res = fmt.Sprintf("%.2f", typ.as.float)
 	case TYPE_STRING:
-		res = fmt.Sprintf("%s\n", typ.as.str)
+		res = fmt.Sprintf("%s", typ.as.str)
 	default:
 		res = "?????"
 	}
