@@ -147,14 +147,11 @@ func (block Block) Eval(_ *Env) Type {
 	}
 
 	for _, expr := range block.exprs {
-		stop := false
-		if _, ok := expr.(Return); ok {
-            stop = true
-		}
 		res = expr.Eval(block.env)
-		if stop {
+		if res.is_return {
 			break
 		}
+
 	}
 	return res
 }
@@ -251,6 +248,7 @@ func (p Print) Eval(env *Env) Type {
 
 func (r Return) Eval(env *Env) Type {
 	res := r.expr.Eval(env)
+	res.is_return = true
 	return res
 }
 

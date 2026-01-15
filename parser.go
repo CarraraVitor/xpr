@@ -26,8 +26,9 @@ type As struct {
 }
 
 type Type struct {
-	kind TypeKind
-	as   As
+	kind      TypeKind
+	as        As
+	is_return bool
 }
 
 type Expr interface {
@@ -59,8 +60,8 @@ type UnOp struct {
 type Var string
 
 type Block struct {
-	exprs []Expr
-	env   *Env
+	exprs    []Expr
+	env      *Env
 }
 
 type Assignment struct {

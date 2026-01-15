@@ -8,10 +8,10 @@
 - [X] Persistent REPL
 - [X] Type System
 - [X] Strings
-- [ ] Functions
+- [X] Functions
     - [X] Fix Recursion
     - [X] Arguments
-    - [ ] Return
+    - [X] Return
 - [ ] Booleans
 - [ ] Array
 - [ ] Maps

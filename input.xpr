@@ -3,6 +3,8 @@ fun test(x) {
     {
         print "inside the block\n";
         print "x = "; print x; print "\n";
+        return 10;
     };
+    print "outside the block\n";
 }
 test(5);
