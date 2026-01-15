@@ -336,10 +336,9 @@ func (t *Tokenizer) Next() (Token, error) {
 	case char == '/':
 		t.cursor++
 
-        for t.Peek() != '\n' {
+		for t.Peek() != '\n' {
 			t.cursor++
 		}
-
 
 		return NewDiv(), nil
 	case char == '>':
@@ -381,32 +380,37 @@ func (t *Tokenizer) Next() (Token, error) {
 				t.cursor++
 				break
 			}
+            if char == '\\' {
+ 				if t.cursor + 1 > len(t.input) {
+					break;
+				}
+				if t.input[t.cursor + 1] == 'n' {
+					t.cursor++
+					char = 0x0A
+				}
+			}
+
 			str_lit.WriteByte(char)
 		}
 		return NewStrLit(str_lit.String()), nil
 
 	case unicode.IsLetter(rune(char)), char == '_':
-		{
-			id := t.consumeIdentifier()
-			typ, ok := KEYWORDS[id]
-			if ok {
-				tok := Token{
-					Type:  typ,
-					Value: id,
-				}
-				return tok, nil
+		id := t.consumeIdentifier()
+		typ, ok := KEYWORDS[id]
+		if ok {
+			tok := Token{
+				Type:  typ,
+				Value: id,
 			}
-			return NewID(id), nil
-
+			return tok, nil
 		}
+		return NewID(id), nil
 	case unicode.IsDigit(rune(char)):
-		{
-			n, err := t.consumeNumber()
-			if err != nil {
-				return Token{}, fmt.Errorf("next: %s", err)
-			}
-			return NewNumber(n), nil
+		n, err := t.consumeNumber()
+		if err != nil {
+			return Token{}, fmt.Errorf("next: %s", err)
 		}
+		return NewNumber(n), nil
 	case char == ',':
 		t.cursor++
 		return NewComma(), nil
