@@ -9,8 +9,9 @@
 - [X] Type System
 - [X] Strings
 - [ ] Functions
-    - [ ] Fix Recursion
-    - [ ] Parse Arguments
+    - [X] Fix Recursion
+    - [X] Arguments
+    - [ ] Return
 - [ ] Booleans
 - [ ] Array
 - [ ] Maps

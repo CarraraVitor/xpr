@@ -1,22 +1,8 @@
-counter = 10;
-
-y = 10;
-fun hi() {
-    print "HI!!!!";
-    print y;
-}
-
-fun hello() {
-    print y;
-    counter = counter + 1;
-    if counter < 100 {
-        print "hello";
-        hello();
-    } else {
-        hi();
-        counter;
+fun test(x) {
+    print "x = "; print x; print "\n";
+    {
+        print "inside the block\n";
+        print "x = "; print x; print "\n";
     };
-};
-
-x = hello();
-print x;
+}
+test(5);

@@ -147,7 +147,14 @@ func (block Block) Eval(_ *Env) Type {
 	}
 
 	for _, expr := range block.exprs {
+		stop := false
+		if _, ok := expr.(Return); ok {
+            stop = true
+		}
 		res = expr.Eval(block.env)
+		if stop {
+			break
+		}
 	}
 	return res
 }
@@ -201,13 +208,49 @@ func (w While) Eval(env *Env) Type {
 }
 
 func (fc FunctionCall) Eval(_ *Env) Type {
-	maps.Copy(fc.fun.body.env.vars, fc.args)
-	return fc.fun.body.Eval(nil)
+	prev_env := fc.fun.body.env
+
+	env := newEnv()
+    maps.Copy(env.vars, prev_env.vars)
+    maps.Copy(env.funcs, prev_env.funcs)
+	env.parent = prev_env.parent
+	fc.fun.body.env = &env
+
+	for arg, val := range fc.args {
+		eval := val.Eval(fc.fun.body.env)
+		env.vars[arg] = eval
+	}
+
+	for _, expr := range fc.fun.body.exprs {
+		updateParent(expr, &env)
+	}
+
+	if DEBUG {
+		fmt.Printf("---\n")
+		fmt.Printf("Prev Env Addr: %p\n", prev_env)
+		fmt.Printf("Curr Env Addr: %p\n", &env)
+		fmt.Printf("Curr Env     : %+v\n", env)
+		fmt.Printf("Function Call:\n%+v\n", fc)
+	}
+
+	res := fc.fun.body.Eval(nil)
+
+	fc.fun.body.env = prev_env
+	for _, expr := range fc.fun.body.exprs {
+		updateParent(expr, prev_env)
+	}
+
+	return res
 }
 
 func (p Print) Eval(env *Env) Type {
 	res := p.expr.Eval(env)
 	fmt.Printf("%s", res)
+	return res
+}
+
+func (r Return) Eval(env *Env) Type {
+	res := r.expr.Eval(env)
 	return res
 }
 
@@ -234,9 +277,12 @@ func interpret_file(parser *Parser, input_file string) {
 
 	parser.ResetTokens(tokens)
 	main_block := parser.Parse()
-	res := main_block.Eval(nil)
+	_ = main_block.Eval(nil)
 	// fmt.Printf("%s\n", main_block)
-	fmt.Printf("Final Value: %s\n", res)
+	// for name, fn := range main_block.(Block).env.funcs {
+	// 	fmt.Printf("%s = \n%+v\n", name, *fn)
+	// }
+	// fmt.Printf("Final Value: %s\n", res)
 }
 
 func REPL(parser *Parser) {
@@ -300,4 +346,45 @@ func endsWith(s string, pattern byte) bool {
 		return false
 	}
 	return s[len(s)-1] == pattern
+}
+
+func updateParent(expr Expr, parent *Env) {
+	switch expr := expr.(type) {
+	case BinOp:
+		updateParent(expr.left, parent)
+		updateParent(expr.right, parent)
+		return
+
+	case UnOp:
+		updateParent(expr.right, parent)
+		return
+
+	case Block:
+		expr.env.parent = parent
+		return
+
+	case If:
+		expr.then.env.parent = parent
+		return
+
+	case IfElse:
+		expr.then.env.parent = parent
+		expr.elze.env.parent = parent
+		return
+
+	case While:
+		expr.then.env.parent = parent
+		return
+
+	case Print:
+		updateParent(expr.expr, parent)
+		return
+
+	case Return:
+		updateParent(expr.expr, parent)
+		return
+	default:
+		return
+	}
+
 }

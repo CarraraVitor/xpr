@@ -95,7 +95,11 @@ type Function struct {
 
 type FunctionCall struct {
 	fun  *Function
-	args map[Var]Type
+	args map[Var]Expr
+}
+
+type Return struct {
+	expr Expr
 }
 
 func newFloat(f float64) Type {
@@ -136,7 +140,7 @@ func (typ Type) String() string {
 	case TYPE_FLOAT:
 		res = fmt.Sprintf("%.2f", typ.as.float)
 	case TYPE_STRING:
-		res = fmt.Sprintf("%s", typ.as.str)
+		res = typ.as.str
 	default:
 		res = "?????"
 	}
@@ -251,6 +255,10 @@ func (fc FunctionCall) String() string {
 
 func (p Print) String() string {
 	return fmt.Sprintf("PRINT: %s", p.expr.String())
+}
+
+func (r Return) String() string {
+	return fmt.Sprintf("RETURN: %s", r.expr.String())
 }
 
 func exprNumber(t Token) (Number, error) {
@@ -480,7 +488,13 @@ params_loop:
 
 	fun := &Function{name: name, params: params}
 	p.env.funcs[name] = fun
-	body := p.Block()
+
+	env := newEnv()
+	// for _, param := range params {
+	// 	env.vars[param] = newFloat(0.0)
+	// }
+
+	body := p.Block(env)
 	*fun = exprFunc(name, params, body)
 
 	err = p.Expect(NewRightCurly())
@@ -567,6 +581,10 @@ func (p *Parser) Expression(prev_bp int) Expr {
 		left = Print{
 			expr: p.Expression(0),
 		}
+	case RETURN:
+		left = Return{
+			expr: p.Expression(0),
+		}
 	case SEMICOLON:
 		return nil
 	default:
@@ -586,31 +604,53 @@ func (p *Parser) Expression(prev_bp int) Expr {
 				return left
 			}
 
-			// NOTE: the only possible postfix operator for now is a(b)
-			err := p.Assert(p.Next(), LEFT_PAREN)
-			if err != nil {
-				fmt.Printf("ERROR: only supported postfix operator is Function Call. Invalid operator: '%s'\n", op.Value)
-				os.Exit(1)
-			}
-
-			// TODO: parse function call arguments
-
-			err = p.Expect(NewRightParen())
-			if err != nil {
-				fmt.Printf("ERROR: expected ')' in function call\n")
-				os.Exit(1)
-			}
-
 			function, err := p.env.getFunc(left)
 			if err != nil {
 				fmt.Printf("ERROR: invalid function call: %s\n", err)
 				os.Exit(1)
 			}
+
+			// NOTE: the only possible postfix operator for now is a(b)
+			err = p.Assert(p.Next(), LEFT_PAREN)
+			if err != nil {
+				fmt.Printf("ERROR: only supported postfix operator is Function Call. Invalid operator: '%s'\n", op.Value)
+				os.Exit(1)
+			}
+
+			args := []Expr{}
+
+			for peek := p.Peek().Type; peek != RIGHT_PAREN && peek != EOF; peek = p.Peek().Type {
+				arg := p.Expression(0)
+				args = append(args, arg)
+				if p.Peek().Type == COMMA {
+					p.Next()
+				} else {
+					break
+				}
+			}
+
+			if len(args) > len(function.params) {
+				fmt.Printf("ERROR: expected at most %d arguments, but got %d\n", len(function.params), len(args))
+				os.Exit(1)
+			}
+
+			args_map := make(map[Var]Expr)
+			for i := range len(args) {
+				arg := args[i]
+				param := function.params[i]
+				args_map[param] = arg
+			}
+
+			err = p.Expect(NewRightParen())
+			if err != nil {
+				fmt.Printf("ERROR: expected ')' in function call: %s\n", err)
+				os.Exit(1)
+			}
+
 			left = FunctionCall{
 				fun:  function,
-				args: make(map[Var]Type),
+				args: args_map,
 			}
-			p.Next()
 			continue
 		}
 
