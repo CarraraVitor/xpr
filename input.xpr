@@ -1,10 +1,12 @@
-fun test(x) {
-    print "x = "; print x; print "\n";
-    {
-        print "inside the block\n";
-        print "x = "; print x; print "\n";
-        return 10;
-    };
-    print "outside the block\n";
-}
-test(5);
+counter = 0;
+x = while counter < 10 {
+    print "counting... ";
+    print counter;
+    print "\n";
+    counter = counter + 1;
+    counter;
+};
+print "----\n";
+print " x = ";
+print x;
+print "\n";
